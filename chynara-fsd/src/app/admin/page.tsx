@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'motion/react'
-import { Plus, Pencil, Trash2, Eye, EyeOff, ArrowLeft, Save, X, LogOut, Lock, Mail } from 'lucide-react'
+import { Plus, Pencil, Trash2, Eye, EyeOff, Save, X, LogOut, Lock, Mail } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import type { Dish, Category } from '@/entities/dish'
 import {
@@ -29,19 +29,18 @@ export default function AdminPage() {
   const [session, setSession] = useState<any>(null)
   const [authLoading, setAuthLoading] = useState(true)
 
-  // Состояния логина
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState('')
   const [loggingIn, setLoggingIn] = useState(false)
 
-  // Данные админки
   const [dishes, setDishes] = useState<Dish[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<Dish | null>(null)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState(emptyForm)
+  const [uploading, setUploading] = useState(false)
 
   const supabase = createClient()
 
@@ -52,13 +51,12 @@ export default function AdminPage() {
       setDishes(d)
       setCategories(c.filter((x) => x.id !== 'all'))
     } catch (error) {
-      console.error('Ошибка загрузки данных:', error)
+      console.error(error)
     } finally {
       setLoading(false)
     }
   }
 
-  // Проверяем сессию при загрузке
   useEffect(() => {
     async function checkUser() {
       const { data: { session } } = await supabase.auth.getSession()
@@ -70,7 +68,6 @@ export default function AdminPage() {
     }
     checkUser()
 
-    // Подписываемся на изменения авторизации
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       if (session) {
@@ -102,6 +99,36 @@ export default function AdminPage() {
   async function handleLogout() {
     await supabase.auth.signOut()
     setSession(null)
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      setUploading(true)
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+      const filePath = `${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('dishes')
+        .upload(filePath, file)
+
+      if (uploadError) {
+        throw uploadError
+      }
+
+      const { data } = supabase.storage
+        .from('dishes')
+        .getPublicUrl(filePath)
+
+      setForm({ ...form, image: data.publicUrl })
+    } catch (error: any) {
+      alert('Не удалось загрузить изображение: ' + error.message)
+    } finally {
+      setUploading(false)
+    }
   }
 
   function openCreate() {
@@ -163,7 +190,6 @@ export default function AdminPage() {
     reload()
   }
 
-  // 1. Показываем загрузку при проверке сессии
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F7F5F0]">
@@ -172,7 +198,6 @@ export default function AdminPage() {
     )
   }
 
-  // 2. Если пользователь НЕ вошел — показываем форму авторизации прямо на /admin
   if (!session) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F7F5F0] p-4">
@@ -192,7 +217,7 @@ export default function AdminPage() {
             <div>
               <label className="text-xs text-[#6B7B6E] block mb-1">Email</label>
               <div className="relative">
-                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                 <input
                   type="email"
                   required
@@ -207,7 +232,7 @@ export default function AdminPage() {
             <div>
               <label className="text-xs text-[#6B7B6E] block mb-1">Пароль</label>
               <div className="relative">
-                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                 <input
                   type="password"
                   required
@@ -229,7 +254,7 @@ export default function AdminPage() {
           </form>
 
           <div className="mt-6 text-center">
-            <Link href="/" className="text-xs text-[#6B7B6E] hover:underline">
+            <Link className="text-xs text-[#6B7B6E] hover:underline" href="/">
               ← На главную сайта
             </Link>
           </div>
@@ -238,7 +263,6 @@ export default function AdminPage() {
     )
   }
 
-  // 3. Если вошел — показываем полноценную админку
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F7F5F0]">
@@ -257,10 +281,7 @@ export default function AdminPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            href="/staff"
-            className="px-3 py-2 rounded-xl text-sm bg-white/10 hover:bg-white/20"
-          >
+          <Link className="px-3 py-2 rounded-xl text-sm bg-white/10 hover:bg-white/20" href="/staff">
             Заказы →
           </Link>
           <button
@@ -283,8 +304,7 @@ export default function AdminPage() {
         {dishes.map((dish) => (
           <div
             key={dish.id}
-            className={`flex items-center gap-3 p-4 rounded-2xl bg-white border shadow-sm ${!dish.isAvailable ? 'opacity-50' : ''
-              }`}
+            className={`flex items-center gap-3 p-4 rounded-2xl bg-white border shadow-sm ${!dish.isAvailable ? 'opacity-50' : ''}`}
           >
             <div className="w-14 h-14 rounded-xl overflow-hidden bg-garden-100 shrink-0">
               {dish.image ? (
@@ -304,7 +324,7 @@ export default function AdminPage() {
                 className="p-2 rounded-xl hover:bg-black/5"
                 title={dish.isAvailable ? 'Скрыть' : 'Показать'}
               >
-                {dish.isAvailable ? <Eye size={18} /> : <EyeOff size={18} className="text-red-400" />}
+                {dish.isAvailable ? <Eye size={18} /> : <EyeOff className="text-red-400" size={18} />}
               </button>
               <button onClick={() => openEdit(dish)} className="p-2 rounded-xl hover:bg-black/5" title="Изменить">
                 <Pencil size={18} />
@@ -317,7 +337,6 @@ export default function AdminPage() {
         ))}
       </main>
 
-      {/* Form modal */}
       {(creating || editing) && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40">
           <motion.div
@@ -342,7 +361,7 @@ export default function AdminPage() {
               <Field label="Описание">
                 <textarea
                   className="input min-h-[60px]"
-                  value={form.description}
+                  value={form.description || ''}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                 />
               </Field>
@@ -367,13 +386,37 @@ export default function AdminPage() {
                   ))}
                 </select>
               </Field>
-              <Field label="URL картинки">
-                <input
-                  className="input"
-                  value={form.image}
-                  onChange={(e) => setForm({ ...form, image: e.target.value })}
-                  placeholder="https://..."
-                />
+              <Field label="Изображение блюда">
+                <div className="space-y-2">
+                  <input
+                    className="input"
+                    value={form.image || ''}
+                    onChange={(e) => setForm({ ...form, image: e.target.value })}
+                    placeholder="https://... или загрузите файл ниже"
+                  />
+                  <div className="flex items-center gap-3">
+                    <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-black/5 hover:bg-black/10 text-sm font-medium transition">
+                      <span>{uploading ? 'Загрузка...' : '📁 Выбрать файл'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={uploading}
+                        onChange={handleFileUpload}
+                      />
+                    </label>
+                    {uploading && <span className="text-xs text-gray-500">Загружаем фото...</span>}
+                  </div>
+                  {form.image && (
+                    <div className="relative w-20 h-20 rounded-xl overflow-hidden border bg-gray-50 mt-2">
+                      <img 
+                        src={form.image} 
+                        alt="" 
+                        className="w-full h-full object-cover" 
+                      />
+                    </div>
+                  )}
+                </div>
               </Field>
               <Field label="Бейдж">
                 <select
