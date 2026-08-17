@@ -1,89 +1,65 @@
+import { createClient } from '@/utils/supabase/client'
 import type { Category, Dish } from '@/entities/dish'
-import { load, save } from './storage'
 
-const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'all', name: 'Все блюда', icon: 'leaf' },
-  { id: 'breakfast', name: 'Завтраки', icon: 'coffee' },
-  { id: 'salads', name: 'Салаты', icon: 'salad' },
-  { id: 'soups', name: 'Супы', icon: 'soup' },
-  { id: 'hot', name: 'Горячие блюда', icon: 'utensils' },
-  { id: 'drinks', name: 'Напитки', icon: 'cup' },
-  { id: 'desserts', name: 'Десерты', icon: 'cake' },
-]
-
-const DEFAULT_DISHES: Dish[] = [
-  {
-    id: 'd1', categoryId: 'salads', name: 'Салат «Чынара»',
-    description: 'Свежие овощи, зелень, фирменный соус', price: 250, badge: 'hit', isAvailable: true,
-    image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&q=80',
-  },
-  {
-    id: 'd2', categoryId: 'soups', name: 'Шорпо',
-    description: 'Наваристый мясной бульон с овощами', price: 280, badge: 'new', isAvailable: true,
-    image: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80',
-  },
-  {
-    id: 'd3', categoryId: 'hot', name: 'Плов «Ошский»',
-    description: 'Ароматный плов с бараниной', price: 390, badge: 'hit', isAvailable: true,
-    image: 'https://images.unsplash.com/photo-1633945274405-b6c8061d0f9d?w=600&q=80',
-  },
-  {
-    id: 'd4', categoryId: 'desserts', name: 'Чизкейк',
-    description: 'Нежный сливочный чизкейк с ягодами', price: 280, badge: 'new', isAvailable: true,
-    image: 'https://images.unsplash.com/photo-1524351199678-941a58a3df50?w=600&q=80',
-  },
-  {
-    id: 'd5', categoryId: 'hot', name: 'Манты с мясом',
-    description: 'Классические паровые манты', price: 199, badge: 'hit', isAvailable: true,
-    image: 'https://images.unsplash.com/photo-1496116218417-1a781b1c416c?w=600&q=80',
-  },
-  {
-    id: 'd6', categoryId: 'hot', name: 'Куурдак',
-    description: 'Традиционное жаркое из мяса', price: 380, isAvailable: true,
-    image: 'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80',
-  },
-  {
-    id: 'd7', categoryId: 'hot', name: 'Бешбармак',
-    description: 'С домашней лапшой', price: 420, isAvailable: true,
-    image: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=600&q=80',
-  },
-  {
-    id: 'd8', categoryId: 'drinks', name: 'Капучино',
-    description: 'Классический', price: 180, isAvailable: true,
-    image: 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=600&q=80',
-  },
-  {
-    id: 'd9', categoryId: 'breakfast', name: 'Сырники',
-    description: 'Со сметаной или вареньем', price: 220, isAvailable: true,
-    image: 'https://images.unsplash.com/photo-1484723091739-30a097e8f929?w=600&q=80',
-  },
-  {
-    id: 'd10', categoryId: 'salads', name: 'Цезарь с курицей',
-    description: 'Классический с крутонами', price: 320, isAvailable: true,
-    image: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?w=600&q=80',
-  },
-]
-
-function getDishes(): Dish[] {
-  return load<Dish[]>('dishes', DEFAULT_DISHES)
-}
-
-function setDishes(list: Dish[]) {
-  save('dishes', list)
+function mapDbDish(row: any): Dish {
+  return {
+    id: String(row.id),
+    categoryId: row.category_id,
+    name: row.name,
+    description: row.description || '',
+    price: Number(row.price),
+    image: row.image || '',
+    badge: row.badge || undefined,
+    isAvailable: row.is_available ?? true,
+  }
 }
 
 export async function fetchCategories(): Promise<Category[]> {
-  return DEFAULT_CATEGORIES
+  const supabase = createClient()
+  const { data, error } = await supabase.from('categories').select('*')
+
+  if (error) {
+    console.error('Ошибка загрузки категорий:', error.message)
+    return []
+  }
+
+  console.log('Данные категорий из базы:', data)
+
+  return data.map((c) => ({
+    id: String(c.id),
+    name: c.name,
+    icon: c.icon || 'leaf',
+  }))
 }
 
-/** Только доступные блюда (для гостевого меню) */
 export async function fetchDishes(): Promise<Dish[]> {
-  return getDishes().filter((d) => d.isAvailable)
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('is_available', true)
+
+  if (error) {
+    console.error('Ошибка загрузки меню:', error.message)
+    return []
+  }
+
+  return data.map(mapDbDish)
 }
 
-/** Все блюда включая скрытые (для админки) */
 export async function fetchAllDishes(): Promise<Dish[]> {
-  return getDishes()
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .order('name', { ascending: true })
+
+  if (error) {
+    console.error('Ошибка загрузки всех блюд:', error.message)
+    return []
+  }
+
+  return data.map(mapDbDish)
 }
 
 export async function fetchMenu() {
@@ -91,34 +67,102 @@ export async function fetchMenu() {
   return { categories, dishes }
 }
 
-export async function createDish(data: Omit<Dish, 'id'>): Promise<Dish> {
-  const list = getDishes()
-  const dish: Dish = { ...data, id: 'd' + Date.now() }
-  list.push(dish)
-  setDishes(list)
-  return dish
+export async function createDish(data: Omit<Dish, 'id'>): Promise<Dish | null> {
+  const supabase = createClient()
+
+  const payload = {
+    category_id: data.categoryId,
+    name: data.name,
+    description: data.description,
+    price: data.price,
+    image: data.image,
+    badge: data.badge || null,
+    is_available: data.isAvailable,
+  }
+
+  const { data: inserted, error } = await supabase
+    .from('products')
+    .insert([payload])
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Ошибка создания блюда:', error.message)
+    alert('Не удалось создать блюдо: ' + error.message)
+    return null
+  }
+
+  return mapDbDish(inserted)
 }
 
 export async function updateDish(id: string, patch: Partial<Dish>): Promise<Dish | null> {
-  const list = getDishes()
-  const i = list.findIndex((d) => d.id === id)
-  if (i < 0) return null
-  list[i] = { ...list[i], ...patch, id }
-  setDishes(list)
-  return list[i]
+  const supabase = createClient()
+
+  const payload: any = {}
+  if (patch.categoryId !== undefined) payload.category_id = patch.categoryId
+  if (patch.name !== undefined) payload.name = patch.name
+  if (patch.description !== undefined) payload.description = patch.description
+  if (patch.price !== undefined) payload.price = patch.price
+  if (patch.image !== undefined) payload.image = patch.image
+  if (patch.badge !== undefined) payload.badge = patch.badge || null
+  if (patch.isAvailable !== undefined) payload.is_available = patch.isAvailable
+
+  const { data: updated, error } = await supabase
+    .from('products')
+    .update(payload)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Ошибка обновления блюда:', error.message)
+    alert('Не удалось обновить блюдо: ' + error.message)
+    return null
+  }
+
+  return mapDbDish(updated)
 }
 
 export async function deleteDish(id: string): Promise<boolean> {
-  const list = getDishes().filter((d) => d.id !== id)
-  setDishes(list)
+  const supabase = createClient()
+  const { error } = await supabase.from('products').delete().eq('id', id)
+
+  if (error) {
+    console.error('Ошибка удаления блюда:', error.message)
+    alert('Не удалось удалить блюдо: ' + error.message)
+    return false
+  }
+
   return true
 }
 
 export async function toggleDishVisibility(id: string): Promise<Dish | null> {
-  const list = getDishes()
-  const i = list.findIndex((d) => d.id === id)
-  if (i < 0) return null
-  list[i] = { ...list[i], isAvailable: !list[i].isAvailable }
-  setDishes(list)
-  return list[i]
+  const supabase = createClient()
+
+  const { data: current, error: fetchError } = await supabase
+    .from('products')
+    .select('is_available')
+    .eq('id', id)
+    .single()
+
+  if (fetchError || !current) {
+    console.error('Не удалось найти блюдо для переключения')
+    return null
+  }
+
+  const newStatus = !current.is_available
+
+  const { data: updated, error } = await supabase
+    .from('products')
+    .update({ is_available: newStatus })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Ошибка изменения видимости:', error.message)
+    return null
+  }
+
+  return mapDbDish(updated)
 }

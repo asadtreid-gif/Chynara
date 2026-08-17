@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'motion/react'
-import { Plus, Pencil, Trash2, Eye, EyeOff, ArrowLeft, Save, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Eye, EyeOff, ArrowLeft, Save, X, LogOut, Lock, Mail } from 'lucide-react'
+import { createClient } from '@/utils/supabase/client'
 import type { Dish, Category } from '@/entities/dish'
 import {
   fetchAllDishes,
@@ -25,6 +26,16 @@ const emptyForm = {
 }
 
 export default function AdminPage() {
+  const [session, setSession] = useState<any>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+
+  // Состояния логина
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loginError, setLoginError] = useState('')
+  const [loggingIn, setLoggingIn] = useState(false)
+
+  // Данные админки
   const [dishes, setDishes] = useState<Dish[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
@@ -32,16 +43,66 @@ export default function AdminPage() {
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState(emptyForm)
 
+  const supabase = createClient()
+
   async function reload() {
-    const [d, c] = await Promise.all([fetchAllDishes(), fetchCategories()])
-    setDishes(d)
-    setCategories(c.filter((x) => x.id !== 'all'))
-    setLoading(false)
+    setLoading(true)
+    try {
+      const [d, c] = await Promise.all([fetchAllDishes(), fetchCategories()])
+      setDishes(d)
+      setCategories(c.filter((x) => x.id !== 'all'))
+    } catch (error) {
+      console.error('Ошибка загрузки данных:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
+  // Проверяем сессию при загрузке
   useEffect(() => {
-    reload()
-  }, [])
+    async function checkUser() {
+      const { data: { session } } = await supabase.auth.getSession()
+      setSession(session)
+      setAuthLoading(false)
+      if (session) {
+        reload()
+      }
+    }
+    checkUser()
+
+    // Подписываемся на изменения авторизации
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+      if (session) {
+        reload()
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [supabase])
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault()
+    setLoggingIn(true)
+    setLoginError('')
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) {
+      setLoginError('Неверный email или пароль')
+      setLoggingIn(false)
+    }
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    setSession(null)
+  }
 
   function openCreate() {
     setForm(emptyForm)
@@ -51,13 +112,13 @@ export default function AdminPage() {
 
   function openEdit(dish: Dish) {
     setForm({
-      name: dish.name,
-      description: dish.description,
-      price: dish.price,
-      categoryId: dish.categoryId,
+      name: dish.name || '',
+      description: dish.description || '',
+      price: dish.price || 0,
+      categoryId: dish.categoryId || 'hot',
       image: dish.image || '',
       badge: dish.badge || '',
-      isAvailable: dish.isAvailable,
+      isAvailable: dish.isAvailable ?? true,
     })
     setEditing(dish)
     setCreating(false)
@@ -102,6 +163,82 @@ export default function AdminPage() {
     reload()
   }
 
+  // 1. Показываем загрузку при проверке сессии
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F7F5F0]">
+        <div className="w-10 h-10 border-4 border-garden-700 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  // 2. Если пользователь НЕ вошел — показываем форму авторизации прямо на /admin
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F7F5F0] p-4">
+        <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8 border border-black/5">
+          <div className="text-center mb-6">
+            <h1 className="text-xl font-bold">Вход в админку</h1>
+            <p className="text-xs text-[#6B7B6E] mt-1">Кафе «Чынара»</p>
+          </div>
+
+          {loginError && (
+            <div className="mb-4 p-3 rounded-xl bg-red-50 text-red-600 text-xs text-center font-medium">
+              {loginError}
+            </div>
+          )}
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="text-xs text-[#6B7B6E] block mb-1">Email</label>
+              <div className="relative">
+                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="email"
+                  required
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-black/10 text-sm outline-none focus:border-garden-700"
+                  placeholder="admin@chynara.kg"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs text-[#6B7B6E] block mb-1">Пароль</label>
+              <div className="relative">
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="password"
+                  required
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-black/10 text-sm outline-none focus:border-garden-700"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loggingIn}
+              className="w-full py-3 rounded-xl bg-garden-700 text-white font-semibold text-sm hover:bg-garden-800 transition disabled:opacity-50"
+            >
+              {loggingIn ? 'Вход...' : 'Войти'}
+            </button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <Link href="/" className="text-xs text-[#6B7B6E] hover:underline">
+              ← На главную сайта
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 3. Если вошел — показываем полноценную админку
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F7F5F0]">
@@ -114,9 +251,6 @@ export default function AdminPage() {
     <div className="min-h-screen bg-[#F7F5F0]">
       <header className="bg-garden-900 text-white px-4 sm:px-8 py-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Link href="/" className="p-2 rounded-xl hover:bg-white/10">
-            <ArrowLeft size={20} />
-          </Link>
           <div>
             <h1 className="font-bold text-lg">Админка — Блюда</h1>
             <p className="text-xs text-white/50">Добавление, изменение, скрытие</p>
@@ -135,6 +269,13 @@ export default function AdminPage() {
           >
             <Plus size={16} /> Добавить
           </button>
+          <button
+            onClick={handleLogout}
+            className="p-2 rounded-xl bg-white/10 hover:bg-red-500/20 text-red-200"
+            title="Выйти"
+          >
+            <LogOut size={18} />
+          </button>
         </div>
       </header>
 
@@ -142,13 +283,11 @@ export default function AdminPage() {
         {dishes.map((dish) => (
           <div
             key={dish.id}
-            className={`flex items-center gap-3 p-4 rounded-2xl bg-white border shadow-sm ${
-              !dish.isAvailable ? 'opacity-50' : ''
-            }`}
+            className={`flex items-center gap-3 p-4 rounded-2xl bg-white border shadow-sm ${!dish.isAvailable ? 'opacity-50' : ''
+              }`}
           >
             <div className="w-14 h-14 rounded-xl overflow-hidden bg-garden-100 shrink-0">
               {dish.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img src={dish.image} alt="" className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-xl opacity-30">🍽</div>
@@ -196,7 +335,7 @@ export default function AdminPage() {
               <Field label="Название">
                 <input
                   className="input"
-                  value={form.name}
+                  value={form.name || ''}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
               </Field>

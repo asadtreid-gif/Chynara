@@ -41,7 +41,7 @@ export function Header({
               onClick={onChangeTable}
               className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-full border border-black/10 text-[11px] sm:text-xs font-medium hover:bg-white transition max-w-[7.5rem] sm:max-w-none truncate"
             >
-              🪑 <span className="truncate">{tableLabel}</span>
+              <span className="truncate">{tableLabel}</span>
             </button>
           )}
           <button

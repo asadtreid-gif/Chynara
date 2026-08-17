@@ -68,9 +68,6 @@ export default function StaffPage() {
     <div className="min-h-screen bg-[#F7F5F0]">
       <header className="bg-garden-900 text-white px-4 sm:px-8 py-4 flex items-center justify-between gap-4 sticky top-0 z-20">
         <div className="flex items-center gap-3">
-          <Link href="/" className="p-2 rounded-xl hover:bg-white/10">
-            <ArrowLeft size={20} />
-          </Link>
           <div>
             <h1 className="font-bold text-lg flex items-center gap-2">
               <ChefHat size={20} /> Заказы
@@ -164,7 +161,7 @@ export default function StaffPage() {
                   {order.status === 'preparing' && (
                     <button
                       onClick={() => setStatus(order.id, 'done')}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-garden-700 text-white text-xs font-semibold"
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-garden-700openEdit text-white text-xs font-semibold"
                     >
                       <Check size={14} /> Готово
                     </button>
