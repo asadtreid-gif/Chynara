@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'motion/react'
@@ -46,7 +48,8 @@ export default function AdminPage() {
   const [creatingCategory, setCreatingCategory] = useState(false)
   const [categoryForm, setCategoryForm] = useState({ id: '', name: '' })
 
-  const supabase = createClient()
+  // Создаём клиент только один раз
+  const [supabase] = useState(() => createClient())
 
   async function reload() {
     setLoading(true)
