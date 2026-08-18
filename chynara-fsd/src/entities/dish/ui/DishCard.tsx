@@ -34,7 +34,7 @@ export function DishCard({ dish, qty, index = 0, onAdd, onRemove }: Props) {
             transition={{ duration: 0.4 }}
           />
         ) : (
-          <div className="w-full h-full bg-garden-100 flex items-center justify-center text-4xl opacity-30">🍽</div>
+          <div className="w-full h-full bg-garden-100 flex items-center justify-center text-4xl opacity-30"></div>
         )}
         {dish.badge && (
           <Badge variant={dish.badge}>{dish.badge === 'hit' ? 'Хит' : 'Новинка'}</Badge>

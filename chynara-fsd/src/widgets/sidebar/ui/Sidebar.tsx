@@ -4,6 +4,7 @@ import { Leaf } from 'lucide-react'
 import { CategoryNav } from '@/features/category-filter'
 import type { Category } from '@/entities/dish'
 import { SITE } from '@/shared/config/site'
+import logoImg from '@/public/logo.jpg' 
 import { cn } from '@/shared/lib/cn'
 
 type Props = {
@@ -25,8 +26,8 @@ export function Sidebar({ categories, activeId, onChange, open, onClose }: Props
     >
       <div className="px-6 pt-8 pb-6 border-b border-white/10 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full border-2 border-garden-300/40 flex items-center justify-center bg-white/5">
-            <Leaf size={22} className="text-garden-300" />
+          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-garden-300/40 shrink-0 bg-white shadow-sm">
+            <img src={(logoImg as { src: string }).src} alt="Кафе Чынара" className="w-full h-full object-cover" />
           </div>
           <div>
             <p className="font-bold text-lg tracking-wide">{SITE.name.toUpperCase()}</p>

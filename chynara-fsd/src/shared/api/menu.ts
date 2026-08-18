@@ -23,7 +23,6 @@ export async function fetchCategories(): Promise<Category[]> {
     return []
   }
 
-  console.log('Данные категорий из базы:', data)
 
   return data.map((c) => ({
     id: String(c.id),

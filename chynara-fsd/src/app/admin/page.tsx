@@ -310,7 +310,7 @@ export default function AdminPage() {
               {dish.image ? (
                 <img src={dish.image} alt="" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-xl opacity-30">🍽</div>
+                <div className="w-full h-full flex items-center justify-center text-xl opacity-30"></div>
               )}
             </div>
             <div className="flex-1 min-w-0">
