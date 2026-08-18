@@ -43,7 +43,6 @@ export default function AdminPage() {
   const [form, setForm] = useState(emptyForm)
   const [uploading, setUploading] = useState(false)
 
-  // Стейты для добавления категории
   const [creatingCategory, setCreatingCategory] = useState(false)
   const [categoryForm, setCategoryForm] = useState({ id: '', name: '' })
 
