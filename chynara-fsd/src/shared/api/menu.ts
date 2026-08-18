@@ -94,6 +94,12 @@ export async function createDish(data: Omit<Dish, 'id'>): Promise<Dish | null> {
   return mapDbDish(inserted)
 }
 
+export async function createCategory(payload: { id: string; name: string }) {
+  const supabase = createClient()
+  const { error } = await supabase.from('categories').insert([payload])
+  if (error) throw error
+}
+
 export async function updateDish(id: string, patch: Partial<Dish>): Promise<Dish | null> {
   const supabase = createClient()
 

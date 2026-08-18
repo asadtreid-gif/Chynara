@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'motion/react'
-import { Plus, Pencil, Trash2, Eye, EyeOff, Save, X, LogOut, Lock, Mail } from 'lucide-react'
+import { Plus, Pencil, Trash2, Eye, EyeOff, Save, X, LogOut, Lock, Mail, FolderPlus } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import type { Dish, Category } from '@/entities/dish'
 import {
@@ -13,6 +13,7 @@ import {
   updateDish,
   deleteDish,
   toggleDishVisibility,
+  createCategory,
 } from '@/shared/api/menu'
 
 const emptyForm = {
@@ -41,6 +42,10 @@ export default function AdminPage() {
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [uploading, setUploading] = useState(false)
+
+  // Стейты для добавления категории
+  const [creatingCategory, setCreatingCategory] = useState(false)
+  const [categoryForm, setCategoryForm] = useState({ id: '', name: '' })
 
   const supabase = createClient()
 
@@ -115,14 +120,9 @@ export default function AdminPage() {
         .from('dishes')
         .upload(filePath, file)
 
-      if (uploadError) {
-        throw uploadError
-      }
+      if (uploadError) throw uploadError
 
-      const { data } = supabase.storage
-        .from('dishes')
-        .getPublicUrl(filePath)
-
+      const { data } = supabase.storage.from('dishes').getPublicUrl(filePath)
       setForm({ ...form, image: data.publicUrl })
     } catch (error: any) {
       alert('Не удалось загрузить изображение: ' + error.message)
@@ -190,7 +190,22 @@ export default function AdminPage() {
     reload()
   }
 
-  if (authLoading) {
+  async function handleSaveCategory() {
+    if (!categoryForm.id || !categoryForm.name) {
+      alert('Заполните ID (латиницей) и название')
+      return
+    }
+    try {
+      await createCategory(categoryForm)
+      setCreatingCategory(false)
+      setCategoryForm({ id: '', name: '' })
+      reload()
+    } catch (error: any) {
+      alert('Ошибка при создании категории: ' + error.message)
+    }
+  }
+
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F7F5F0]">
         <div className="w-10 h-10 border-4 border-garden-700 border-t-transparent rounded-full animate-spin" />
@@ -206,13 +221,11 @@ export default function AdminPage() {
             <h1 className="text-xl font-bold">Вход в админку</h1>
             <p className="text-xs text-[#6B7B6E] mt-1">Кафе «Чынара»</p>
           </div>
-
           {loginError && (
             <div className="mb-4 p-3 rounded-xl bg-red-50 text-red-600 text-xs text-center font-medium">
               {loginError}
             </div>
           )}
-
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="text-xs text-[#6B7B6E] block mb-1">Email</label>
@@ -228,7 +241,6 @@ export default function AdminPage() {
                 />
               </div>
             </div>
-
             <div>
               <label className="text-xs text-[#6B7B6E] block mb-1">Пароль</label>
               <div className="relative">
@@ -243,7 +255,6 @@ export default function AdminPage() {
                 />
               </div>
             </div>
-
             <button
               type="submit"
               disabled={loggingIn}
@@ -252,7 +263,6 @@ export default function AdminPage() {
               {loggingIn ? 'Вход...' : 'Войти'}
             </button>
           </form>
-
           <div className="mt-6 text-center">
             <Link className="text-xs text-[#6B7B6E] hover:underline" href="/">
               ← На главную сайта
@@ -263,32 +273,28 @@ export default function AdminPage() {
     )
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F7F5F0]">
-        <div className="w-10 h-10 border-4 border-garden-700 border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-[#F7F5F0]">
-      <header className="bg-garden-900 text-white px-4 sm:px-8 py-4 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="font-bold text-lg">Админка — Блюда</h1>
-            <p className="text-xs text-white/50">Добавление, изменение, скрытие</p>
-          </div>
+      <header className="bg-garden-900 text-white px-4 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="font-bold text-lg">Админка — Блюда и Категории</h1>
+          <p className="text-xs text-white/50">Управление контентом кафе</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Link className="px-3 py-2 rounded-xl text-sm bg-white/10 hover:bg-white/20" href="/staff">
             Заказы →
           </Link>
           <button
+            onClick={() => setCreatingCategory(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-sm font-semibold"
+          >
+            <FolderPlus size={16} /> Категория
+          </button>
+          <button
             onClick={openCreate}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-garden-700 text-sm font-semibold"
           >
-            <Plus size={16} /> Добавить
+            <Plus size={16} /> Блюдо
           </button>
           <button
             onClick={handleLogout}
@@ -310,7 +316,7 @@ export default function AdminPage() {
               {dish.image ? (
                 <img src={dish.image} alt="" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-xl opacity-30"></div>
+                <div className="w-full h-full flex items-center justify-center text-xl opacity-30">🍽️</div>
               )}
             </div>
             <div className="flex-1 min-w-0">
@@ -337,6 +343,47 @@ export default function AdminPage() {
         ))}
       </main>
 
+      {/* Модалка создания категории */}
+      {creatingCategory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden p-6 space-y-4"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-lg">Новая категория</h2>
+              <button onClick={() => setCreatingCategory(false)} className="p-2 rounded-xl hover:bg-black/5">
+                <X size={18} />
+              </button>
+            </div>
+            <Field label="ID категории (латиницей, например: drinks, salads)">
+              <input
+                className="input"
+                placeholder="drinks"
+                value={categoryForm.id}
+                onChange={(e) => setCategoryForm({ ...categoryForm, id: e.target.value })}
+              />
+            </Field>
+            <Field label="Название (например: Напитки, Салаты)">
+              <input
+                className="input"
+                placeholder="Напитки"
+                value={categoryForm.name}
+                onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+              />
+            </Field>
+            <button
+              onClick={handleSaveCategory}
+              className="w-full py-3 rounded-2xl bg-garden-700 text-white font-semibold text-sm"
+            >
+              Создать категорию
+            </button>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Модалка создания/редактирования блюда */}
       {(creating || editing) && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40">
           <motion.div
@@ -392,7 +439,7 @@ export default function AdminPage() {
                     className="input"
                     value={form.image || ''}
                     onChange={(e) => setForm({ ...form, image: e.target.value })}
-                    placeholder="https://... или загрузите файл ниже"
+                    placeholder="https://... или загрузите файл"
                   />
                   <div className="flex items-center gap-3">
                     <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-black/5 hover:bg-black/10 text-sm font-medium transition">
@@ -405,15 +452,10 @@ export default function AdminPage() {
                         onChange={handleFileUpload}
                       />
                     </label>
-                    {uploading && <span className="text-xs text-gray-500">Загружаем фото...</span>}
                   </div>
                   {form.image && (
                     <div className="relative w-20 h-20 rounded-xl overflow-hidden border bg-gray-50 mt-2">
-                      <img 
-                        src={form.image} 
-                        alt="" 
-                        className="w-full h-full object-cover" 
-                      />
+                      <img src={form.image} alt="" className="w-full h-full object-cover" />
                     </div>
                   )}
                 </div>
@@ -460,7 +502,6 @@ export default function AdminPage() {
           outline: none;
         }
         .input:focus {
-          ring: 2px;
           border-color: #1b5e3b;
         }
       `}</style>
